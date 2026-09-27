@@ -261,7 +261,7 @@ public:
 
   void increaseVolume();
   void decreaseVolume();
-  bool setVolume     ();
+  void setVolume     ();
   void setVolume     (uint8_t);
 #ifdef NEO_RING_EXT
   uint8_t getVolumeRel() const { return static_cast<uint16_t>(*volume-*minVolume)*0xff/(*maxVolume-*minVolume); }

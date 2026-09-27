@@ -174,6 +174,8 @@ Chip_card::readCardEvent Chip_card::readCard(folderSettings &nfcTag) {
   if ((version != 0) && (version <= cardVersion)) {
     nfcTag.folder   = buffer[5];
     nfcTag.mode     = static_cast<pmode_t>(buffer[6]);
+    if (nfcTag.mode == pmode_t::album_vb)
+      nfcTag.mode = pmode_t::hoerbuch_vb;
     nfcTag.special  = buffer[7];
     nfcTag.special2 = buffer[8];
   }

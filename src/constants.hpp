@@ -697,8 +697,8 @@ inline constexpr uint8_t   buttonUpPin     = A4;
 inline constexpr uint8_t   buttonDownPin   = A3;
 inline constexpr uint32_t  button3x3DbTime = 50; // Debounce time in milliseconds (default 50ms)
 #else
-inline constexpr uint8_t   buttonUpPin     = A2;
-inline constexpr uint8_t   buttonDownPin   = A1;
+inline constexpr uint8_t   buttonUpPin     = A1;
+inline constexpr uint8_t   buttonDownPin   = A2;
 #endif
 
 #ifdef FIVEBUTTONS

@@ -72,8 +72,7 @@ void Mp3::init() {
   begin();
   loop();
 
-  if (not setVolume())
-    LOG(init_log, s_error, F("Com to DFPlayer broken"));
+  setVolume();
 
   setEq(static_cast<DfMp3_Eq>(settings.eq - 1));
   delay(500);
@@ -371,23 +370,11 @@ void Mp3::decreaseVolume() {
   logVolume();
 }
 
-bool Mp3::setVolume() {
+void Mp3::setVolume() {
   LOG(mp3_log, s_debug, F("setVolume: "), *volume);
-  startTrackTimer.start(6000); // 6 seconds
-  while(not startTrackTimer.isExpired() && (Base::getVolume() != *volume)) {
-    delay(200);
-    loop();
-    Base::setVolume(*volume);
-    delay(200);
-    loop();
-  }
-  if (not startTrackTimer.isActive()) {
-    return false;
-  } else {
-    startTrackTimer.stop();
-  }
+  // fire and forget: send once, no getVolume() ack polling (like Affenbox)
+  Base::setVolume(*volume);
   logVolume();
-  return true;
 }
 
 void Mp3::setVolume(uint8_t v) {
@@ -470,6 +457,13 @@ void Mp3::loop() {
     }
   } );
 
+  // TNG-AiO5/AiO-specific: on the classic All-in-One board (ALLinONE, but not
+  // ALLinONE_Plus) the "missing OnPlayFinished" watchdog + fallback proved
+  // unreliable and caused false track advances. Disable that watchdog
+  // compile-time for this configuration only, so that solely a real DFPlayer
+  // OnPlayFinished notification advances the track. All other targets keep the
+  // original watchdog behaviour unchanged.
+#if !defined(ALLinONE) || defined(ALLinONE_Plus)
   if (not isPause && playing != play_none && startTrackTimer.isExpired() && not isPlaying()) {
     if (not missingOnPlayFinishedTimer.isActive())
       missingOnPlayFinishedTimer.start(dfPlayer_timeUntilStarts);
@@ -482,6 +476,7 @@ void Mp3::loop() {
     Tonuino::getTonuino().nextTrack(1/*tracks*/, true/*fromOnPlayFinished*/);
   }
   else
+#endif
   if (playing == play_none && (current_folder != 0 || mp3_track != 0)) {
     playCurrent();
   }

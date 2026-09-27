@@ -68,6 +68,10 @@ Bei der Arduino IDE muss unter "Werkzeuge/Tools" --> "Pin Numbering" unbedingt "
     5 Buttons mit vollem Feature-Umfang (nur Every, Esp32 und AiOplus)
 ```
 
+**Fork-Hinweis (AiO5):** Die klassische AiO-Platine mit 5 Buttons und die
+fork-spezifischen Anpassungen (eigene Umgebung `TNG_AiO5`) sind in
+[TNG-AIO5.md](TNG-AIO5.md) dokumentiert.
+
 **Verwendung zusammen mit Visual Code**
 
 Eine Anleitung dafür findet man [hier](https://discourse.voss.earth/t/tonuino-software-mit-platformio-aufspielen/13468)
