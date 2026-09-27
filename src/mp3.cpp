@@ -72,8 +72,6 @@ void Mp3::init() {
   begin();
   loop();
 
-  setVolume();
-
   setEq(static_cast<DfMp3_Eq>(settings.eq - 1));
   delay(500);
   loop();
@@ -88,6 +86,8 @@ void Mp3::init() {
 
   LOG(mp3_log, s_info, F("track_count: "), getTotalTrackCount());
   delay(1000);
+
+  setVolume();
 
   loop();
 }
@@ -342,7 +342,7 @@ uint16_t Mp3::getFolderTrackCount(uint16_t folder)
 
 #ifdef DFMiniMp3_T_CHIP_GD3200B
     Base::stop();
-    Base::setVolume(*volume);
+    sendVolume(*volume);
 #endif
 
     return ret;
@@ -351,7 +351,7 @@ uint16_t Mp3::getFolderTrackCount(uint16_t folder)
 void Mp3::increaseVolume() {
   if (*volume < *maxVolume) {
     LOG(mp3_log, s_debug, F("setVolume: "), *volume+1);
-    Base::setVolume(++*volume);
+    sendVolume(++*volume);
   }
 #ifdef NEO_RING_EXT
   volumeChangedTimer.start(1000);
@@ -362,7 +362,7 @@ void Mp3::increaseVolume() {
 void Mp3::decreaseVolume() {
   if (*volume > *minVolume) {
     LOG(mp3_log, s_debug, F("setVolume: "), *volume-1);
-    Base::setVolume(--*volume);
+    sendVolume(--*volume);
   }
 #ifdef NEO_RING_EXT
   volumeChangedTimer.start(1000);
@@ -372,16 +372,27 @@ void Mp3::decreaseVolume() {
 
 void Mp3::setVolume() {
   LOG(mp3_log, s_debug, F("setVolume: "), *volume);
-  // fire and forget: send once, no getVolume() ack polling (like Affenbox)
-  Base::setVolume(*volume);
+  sendVolume(*volume);
   logVolume();
 }
 
 void Mp3::setVolume(uint8_t v) {
   *volume = v;
   LOG(mp3_log, s_debug, F("setVolume: "), *volume);
-  Base::setVolume(*volume);
+  sendVolume(*volume);
   logVolume();
+}
+
+void Mp3::sendVolume(uint8_t v) {
+  // Affenbox scaling for the actual DFPlayer command: the TNG display/settings
+  // value v is sent as (v / 2) + 1. The headphone path keeps its EEPROM value.
+#ifdef HPJACKDETECT
+  const uint8_t dfPlayerVolume = isHeadphoneJackDetect() ? v : static_cast<uint8_t>((v / 2) + 1);
+#else
+  const uint8_t dfPlayerVolume = static_cast<uint8_t>((v / 2) + 1);
+#endif
+  // fire and forget: send once, no getVolume() ack polling (like Affenbox)
+  Base::setVolume(dfPlayerVolume);
 }
 
 void Mp3::logVolume() {
@@ -412,7 +423,7 @@ void Mp3::hpjackdetect() {
       minVolume  = &settings.spkMinVolume;
       initVolume = &settings.spkInitVolume;
     }
-    Base::setVolume(*volume);
+    sendVolume(*volume);
     logVolume();
   }
 }

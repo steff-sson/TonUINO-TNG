@@ -61,9 +61,9 @@ void Settings::resetSettings() {
   LOG(settings_log, s_debug, F("resetSettings"));
   cookie               = cardCookie;
   version              =  2;
-  spkMaxVolume         = 20;
-  spkMinVolume         =  1;
-  spkInitVolume        =  6;
+  spkMaxVolume         = AIO_SPK_MAX_VOLUME;
+  spkMinVolume         = AIO_SPK_MIN_VOLUME;
+  spkInitVolume        = AIO_SPK_INIT_VOLUME;
   eq                   =  1;
   dummy                =  0;
   standbyTimer         =  0;
@@ -77,7 +77,7 @@ void Settings::resetSettings() {
   adminMenuPin[1]      =  1;
   adminMenuPin[2]      =  1;
   adminMenuPin[3]      =  1;
-  pauseWhenCardRemoved =  1;
+  pauseWhenCardRemoved = AIO_PAUSE_WHEN_CARD_REMOVED;
   hpMaxVolume          = 25;
   hpMinVolume          =  5;
   hpInitVolume         = 15;
@@ -94,14 +94,14 @@ void Settings::loadSettingsFromFlash() {
   // PCR (pause when card removed) is hard coded to 1 for this firmware (user wish).
   // Force it after loading so a previously stored valid EEPROM value cannot override it.
   // This only changes RAM, no write to flash -> no unexpected EEPROM wear.
-  pauseWhenCardRemoved = 1;
+  pauseWhenCardRemoved = AIO_PAUSE_WHEN_CARD_REMOVED;
 
   // Speaker volume is hard coded in RAM for this firmware (user wish).
   // Force it after loading so a previously stored valid EEPROM value cannot override it.
   // This only changes RAM, no write to flash -> no unexpected EEPROM wear.
-  spkMinVolume  =  1;
-  spkMaxVolume  = 20;
-  spkInitVolume =  6;
+  spkMinVolume  = AIO_SPK_MIN_VOLUME;
+  spkMaxVolume  = AIO_SPK_MAX_VOLUME;
+  spkInitVolume = AIO_SPK_INIT_VOLUME;
 
   if (hpMaxVolume == 255 || hpMaxVolume == 0) {
     hpMaxVolume          = 25;

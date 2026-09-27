@@ -288,6 +288,7 @@ private:
   friend class tonuino_fixture;
 
   void logVolume();
+  void sendVolume(uint8_t v);
   void refreshIsPlaying();
 
   typedef queue<uint8_t, maxTracksInFolder> track_queue;

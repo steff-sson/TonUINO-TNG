@@ -124,6 +124,26 @@ DECL_PCB(6)
 static_assert(SUM_PCB == 1 , "Please uncomment exactly one of the PCB lines (TonUINO_Classic, TonUINO_Every, etc.). Bitte genau eine der Zeilen zur Definition einer Platine einkommentieren (TonUINO_Classic, TonUINO_Every, etc.).");
 
 // ######################################################################
+// ####### TNG-AiO5 application configuration ###########################
+// ######################################################################
+/* Central hard-coded application values for the TNG-AiO5 firmware.
+ * They are forced in RAM by src/settings.cpp (both on reset and after
+ * loading from EEPROM) and are intentionally NOT written to EEPROM.
+ * Headphone (hp*) values are deliberately NOT configured here; they stay
+ * EEPROM-controlled.
+ *
+ * Zentrale, fest verdrahtete Anwendungswerte fuer die TNG-AiO5-Firmware.
+ * Sie werden in src/settings.cpp im RAM erzwungen (beim Reset und nach dem
+ * Laden aus dem EEPROM) und absichtlich NICHT ins EEPROM geschrieben.
+ * Kopfhoerer-Werte (hp*) werden hier bewusst NICHT gesetzt; sie bleiben
+ * EEPROM-gesteuert.
+ */
+inline constexpr uint8_t AIO_SPK_MIN_VOLUME          =  1; // speaker min volume
+inline constexpr uint8_t AIO_SPK_MAX_VOLUME          = 25; // speaker max volume
+inline constexpr uint8_t AIO_SPK_INIT_VOLUME         =  8; // speaker initial volume
+inline constexpr uint8_t AIO_PAUSE_WHEN_CARD_REMOVED =  1; // pause when card removed
+
+// ######################################################################
 
 /* uncomment one of the below lines to enable special button support
  * um die Tasten zu konfigurieren, bitte eine der nächsten Zeilen auskommentieren

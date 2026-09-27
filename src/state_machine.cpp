@@ -855,7 +855,7 @@ void Play::react(command_e const &cmd_e) {
       tonuino.btModulePairing();
     else
 #endif
-    tonuino.playTrackNumber();
+    checkForShortcutAndShutdown(command::shutdown);
     break;
   case command::volume_up:
     mp3.increaseVolume();
