@@ -1,6 +1,6 @@
-# Affenbox – klassische AiO mit 5 Buttons (auf TonUINO-TNG)
+# TNG-AiO5 – klassische AiO mit 5 Buttons (auf TonUINO-TNG)
 
-Diese Datei dokumentiert den Fork-/Konfigurationsstand für die **klassische AiO-5-Button-Affenbox**
+Diese Datei dokumentiert den Fork-/Konfigurationsstand für die **klassische AiO-Platine mit 5 Buttons**
 auf Basis der offiziellen **TonUINO-TNG**-Firmware.
 
 ## 1. Ziel, Upstream, Abgrenzung
@@ -10,21 +10,21 @@ auf Basis der offiziellen **TonUINO-TNG**-Firmware.
 | Zielpfad | `/home/stef/github/TonuinoTNG` |
 | Upstream | `https://github.com/tonuino/TonUINO-TNG.git` |
 | Upstream-Basis | Branch `main`, Commit `d527ca5` (V3.3.3, 17.09.2026) |
-| Fork-Branch | `affenbox-aio5` |
+| Fork-Branch | `tng-aio5` |
 | Herkunft der Anforderung | Vergleichsrepo `/home/stef/github/TonUINO-Affenbox` |
 
 Abgrenzung:
 - `/home/stef/github/TonUINO-Affenbox` wurde **nicht verändert** – nur lesend als Vergleichsquelle verwendet.
 - Keine Firmware wurde geflasht.
 - Kein `git push`, kein Remote, keine anderen Repos angefasst.
-- `main` bleibt unberührt = reiner Upstream-Stand. Alle Affenbox-Anpassungen liegen auf `affenbox-aio5`.
+- `main` bleibt unberührt = reiner Upstream-Stand. Alle TNG-AiO5-Anpassungen liegen auf `tng-aio5`.
 
 ## 2. Hardware-Zielbild
 
 - MCU: **LGT8F328P** (AiO-Baugruppe)
 - Takt: **16 MHz aus externem 32-MHz-Quarz**, Teiler 2 → `clock_source = 2`
 - Buttons: **klassische AiO mit 5 Buttons** (`FIVEBUTTONS`)
-- PlatformIO-Umgebung: `Affenbox_AiO5` (elektrisch identisch zu `ALLinONE_5`)
+- PlatformIO-Umgebung: `TNG_AiO5` (elektrisch identisch zu `ALLinONE_5`)
 
 `ALLinONE=1` aktiviert in `src/constants.hpp` automatisch `FIVEBUTTONS`
 (Abschnitt *AiO*: `#if not defined(THREEBUTTONS) and not defined(BUTTONS3X3) → #define FIVEBUTTONS`).
@@ -35,14 +35,14 @@ Deshalb braucht die Umgebung **kein** zusätzliches `-D FIVEBUTTONS`.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 cd /home/stef/github/TonuinoTNG
-pio run -e Affenbox_AiO5        # eigener Affenbox-Target
+pio run -e TNG_AiO5             # eigener TNG-AiO5-Target
 pio run -e ALLinONE_5           # Upstream-Referenz (identische Elektrik)
 ```
 
 Ergebnis (2026-09-27):
 
 ```
-Linking .pio/build/Affenbox_AiO5/firmware.elf
+Linking .pio/build/TNG_AiO5/firmware.elf
 RAM:   [=======   ]  71.7% (used 1468 bytes from 2048 bytes)
 Flash: [==========]  98.3% (used 29194 bytes from 29696 bytes)
 ========================= [SUCCESS] =========================
@@ -57,8 +57,8 @@ Flash: [==========]  98.3% (used 29194 bytes from 29696 bytes)
 
 | Datei | Änderung |
 |---|---|
-| `platformio.ini` | Neue, additive Umgebung `[env:Affenbox_AiO5]` – identisch zu `ALLinONE_5` (lgt8f / LGT8F328P / `f_cpu=16000000L` / `clock_source=2` / `framework-lgt8fx@1.0.6` / `-D ALLinONE=1`). Benannter, reproduzierbarer Target für den Fork; bestehende Umgebungen unverändert. |
-| `AFFENBOX-AIO5.md` | Diese Dokumentation. |
+| `platformio.ini` | Neue, additive Umgebung `[env:TNG_AiO5]` – identisch zu `ALLinONE_5` (lgt8f / LGT8F328P / `f_cpu=16000000L` / `clock_source=2` / `framework-lgt8fx@1.0.6` / `-D ALLinONE=1`). Benannter, reproduzierbarer Target für den Fork; bestehende Umgebungen unverändert. |
+| `TNG-AIO5.md` | Diese Dokumentation. |
 | **keine** `src/`-Änderung | Siehe Quellcodevergleich in Abschnitt 5: kein Fall war *eindeutig* so, dass ein Eingriff in den Quellcode zwingend nötig ist. |
 
 ## 5. Quellcodevergleich Affenbox ↔ TonUINO-TNG (AiO, 5 Buttons)
@@ -117,7 +117,7 @@ ist. Der Fork bleibt daher bewusst quellcodetreu und wird über den eigenen Buil
 
 ## 6. Offene Hardwaretests
 
-Bevor diese Firmware produktiv auf der Affenbox läuft, am Gerät prüfen:
+Bevor diese Firmware produktiv auf der klassischen AiO-Platine läuft, am Gerät prüfen:
 
 1. **next/prev-Richtung (A1/A2):** Reagiert ▼ (A1) auf *next* oder *previous*?
    Falls die Box die Affenbox-Konvention (`A1 = next`, `A2 = previous`) braucht, ist der minimale
@@ -196,8 +196,8 @@ Beides sind **TNG-Bordmittel** (keine Zusatz-Hardware):
 
 ## 10. Upstream-Pflege / Rollback
 
-- `main` = unveränderter Upstream → jederzeit `git diff main..affenbox-aio5` zeigt **nur**
+- `main` = unveränderter Upstream → jederzeit `git diff main..tng-aio5` zeigt **nur**
   `platformio.ini` (neue Env) + diese Doku.
-- Upstream-Updates: auf `main` pullen und `affenbox-aio5` rebasen/mergen; der Env-Block ist
+- Upstream-Updates: auf `main` pullen und `tng-aio5` rebasen/mergen; der Env-Block ist
   additiv und konfliktarm.
 - Rollback: Branch verwerfen (`git checkout main`), Upstream bleibt sauber.
