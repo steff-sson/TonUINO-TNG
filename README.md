@@ -72,6 +72,26 @@ Bei der Arduino IDE muss unter "Werkzeuge/Tools" --> "Pin Numbering" unbedingt "
 fork-spezifischen Anpassungen (eigene Umgebung `TNG_AiO5`) sind in
 [TNG-AIO5.md](TNG-AIO5.md) dokumentiert.
 
+### AiO5-Fork-Konfiguration
+
+Die zentralen AiO5-Variablen stehen in `src/constants.hpp`:
+
+```cpp
+AIO_SPK_MIN_VOLUME          = 1
+AIO_SPK_MAX_VOLUME          = 20
+AIO_SPK_INIT_VOLUME         = 6
+AIO_PAUSE_WHEN_CARD_REMOVED = 1
+```
+
+- **Speakerwerte (min/max/init):** Diese Werte werden für die AiO5-Firmware im RAM
+  erzwungen und sind nicht über das EEPROM veränderbar.
+- **Kopfhörerwerte:** Bleiben EEPROM-gesteuert und werden weiterhin über das
+  Admin-Menü verwaltet.
+- **`AIO_PAUSE_WHEN_CARD_REMOVED = 1` (PCR):** Wird die Karte entfernt, pausiert die
+  Wiedergabe; beim Wiederauflegen wird fortgesetzt (Resume).
+
+Der vollständige AiO5-Fork-Kontext steht in [TNG-AIO5.md](TNG-AIO5.md).
+
 **Verwendung zusammen mit Visual Code**
 
 Eine Anleitung dafür findet man [hier](https://discourse.voss.earth/t/tonuino-software-mit-platformio-aufspielen/13468)
