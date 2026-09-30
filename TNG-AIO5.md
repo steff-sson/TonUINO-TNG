@@ -169,6 +169,5 @@ senkbar; eine globale Senkung wäre ein separater, separat zu messender Schritt.
   (gleiche Tracks, nur Kartengröße/Format geändert) steht noch aus.
 - `DfPl Err:1` ist ein **transienter Busy-Zustand** des DFPlayer während des
   Starts; in den Tests **ohne Funktionsausfall**, das Gerät erholt sich.
-- Der genaue Stand der einzelnen Phasen ist in
-  [ToDo-Boot-Optimierung.txt](ToDo-Boot-Optimierung.txt) gepflegt (umgesetzt /
-  teilweise / offen).
+- Der dauerhafte Gesamtstand, offene Punkte und Risiken sind in
+  [TNG-AIO5-STATUS.md](TNG-AIO5-STATUS.md) gepflegt.

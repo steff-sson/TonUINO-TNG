@@ -104,8 +104,9 @@ AIO_STANDBY_TIMER           = 15   // Minuten, 0 = aus
   (die Grenzen kommen aus `special`/`special2`). Die DFPlayer-Readiness-Probe im
   Boot ist begrenzt (`setComRetries(1)`, max. 2 Versuche, 500 ms Abstand, danach
   Restore auf 3; das 6-s-Gate bleibt als Rückfallebene). Messwerte und Details
-  stehen in [TNG-AIO5.md](TNG-AIO5.md); der Boot ist damit **nicht** vollständig
-  optimiert.
+  stehen in [TNG-AIO5.md](TNG-AIO5.md) und im dauerhaften
+  [TNG-AIO5-STATUS.md](TNG-AIO5-STATUS.md); der Boot ist damit **nicht**
+  vollständig optimiert.
 
 Der vollständige AiO5-Fork-Kontext steht in [TNG-AIO5.md](TNG-AIO5.md).
 
