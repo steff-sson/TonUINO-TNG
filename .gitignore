@@ -48,3 +48,9 @@ Temporary Items
 .pio
 .vscode
 release.sh
+
+# AI coding assistant artifacts
+/.opencode/
+
+# Local SD card backups
+/.sd-backup-*/
