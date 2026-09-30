@@ -77,14 +77,22 @@ void Mp3::init() {
   loop();
 
   startTrackTimer.start(6000); // 6 seconds
-  while (not startTrackTimer.isExpired() && (getTotalTrackCount() == 0)) {
+  uint16_t trackCount = 0;
+  // Bound the readiness probe locally: 1 attempt (x C_ACK_TIMEOUT=4000) and at
+  // most 2 probe tries, then restore the library default. The 6 s timer stays
+  // as the safety frame. Boot must not stall >~9 s on a silent DFPlayer.
+  const uint8_t comRetriesNormal = 3; // library default (DFMiniMp3.h:43)
+  setComRetries(1);                   // only for the probe window
+  uint8_t probeAttempts = 2;          // hard attempt cap
+  while (probeAttempts-- > 0 && not startTrackTimer.isExpired() && ((trackCount = getTotalTrackCount()) == 0)) {
     LOG(init_log, s_debug, F("retry getTotalTrackCount"));
-    delay(1000);
+    delay(500);
     loop();
   }
+  setComRetries(comRetriesNormal);
   startTrackTimer.stop();
 
-  LOG(mp3_log, s_info, F("track_count: "), getTotalTrackCount());
+  LOG(mp3_log, s_info, F("track_count: "), trackCount);
   delay(1000);
 
   setVolume();

@@ -315,7 +315,15 @@ void Tonuino::loop() {
 
 void Tonuino::playFolder() {
   LOG(play_log, s_debug, F("playFolder"));
-  numTracksInFolder = mp3.getFolderTrackCount(myFolder.folder);
+  if (myFolder.mode == pmode_t::hoerbuch_vb) {
+    // Von-Bis-Hörbuch: first/last stammen aus special/special2 der Karte.
+    // Die teure getFolderTrackCount()-Abfrage ist dafür nicht nötig.
+    // numTracksInFolder dient weiterhin als gültige Wrap-Grenze (last_track).
+    numTracksInFolder = myFolder.special2;
+  }
+  else {
+    numTracksInFolder = mp3.getFolderTrackCount(myFolder.folder);
+  }
   LOG(play_log, s_warning, numTracksInFolder, F(" tr in folder "), myFolder.folder);
   numTracksInFolder = min(numTracksInFolder, static_cast<uint16_t>(0xffu));
   mp3.clearAllQueue();

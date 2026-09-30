@@ -1,0 +1,447 @@
+================================================================================
+ToDo: Boot-/Play-Start-Optimierung TonUINO-TNG
+Reduktion von redundanten getTotalTrackCount()- und getFolderTrackCount()-Abfragen,
+optionales Entfernen des Readiness-Gates, Fortschritts-/Wrap-Absicherung.
+================================================================================
+
+STATUS: TEILWEISE UMGESETZT (Stand 2026-09-30)
+ERSTELLT AM: 2026-09-27
+AKTUALISIERT AM: 2026-09-30
+CHARAKTER: eigenstaendige Arbeitsanweisung mit Checkboxen und fester Reihenfolge.
+
+================================================================================
+UMSETZUNGSSTAND (2026-09-30, Branch tng-aio5, Umgebung TNG_AiO5)
+================================================================================
+
+Kurzfassung: Die Kernmassnahmen (Phase 2 und Phase 4) sowie die begrenzte
+Readiness-Probe (Phase 3 - bewusst NICHT entfernt) sind umgesetzt und auf dem
+Board gemessen. Fortschritts-/Wrap-Absicherung (Phase 5) und die
+Regressionsphase (Phase 6) sind per Codeanalyse abgedeckt, aber nicht
+vollstaendig auf Hardware durchgetestet. A/B-Messreihe (Phase 7) und der
+Abschluss (Phase 10) sind offen. Es wird ausdruecklich NICHT behauptet, dass
+alle Boot-Optimierungen abgeschlossen sind.
+
+Phasenstatus:
+  Phase 1  Baseline erfassen         : TEILWEISE (Messwerte vorhanden; Rohdaten-/
+                                       Median-Protokoll nicht vollstaendig hier)
+  Phase 2  getTotalTrackCount dedup  : UMGESETZT
+  Phase 3  Readiness-Gate            : TEILWEISE (nicht entfernt, sondern auf
+                                       setComRetries(1) / max. 2 Versuche /
+                                       500 ms begrenzt; 6-s-Gate bleibt)
+  Phase 4  hoerbuch_vb ohne FTC      : UMGESETZT
+  Phase 5  Fortschritt/Wrap          : TEILWEISE (Wrap ueber special2; keine
+                                       neuen Persistenz-/Resume-Tests)
+  Phase 6  Counts/Regression         : TEILWEISE (Codeanalyse; Hardware-Tests
+                                       Admin/Quiz/Webservice offen)
+  Phase 7  A/B-Messplan              : OFFEN
+  Phase 8  Fixer-Sessions            : TEILWEISE (F1-F4 umgesetzt, F5 teilweise,
+                                       F6/F7 offen)
+  Phase 9  Stop/Rollback             : keine Abbruchbedingung eingetreten
+  Phase 10 Abschluss                 : OFFEN
+
+Erfasste Messwerte:
+  - Kleine FAT32-Testkarte, 797 Tracks : Boot bis Idle ca. 2,1 s;
+                                          Mode16-Kartenstart bis isPlaying ca. 1,1 s
+  - Grosse Karte, ca. 7360 Tracks      : Boot typischerweise ca. 5,5 s;
+                                          Kartenstart ca. 3-6 s, je nach SD-/
+                                          DFPlayer-Indexierung teils deutlich mehr
+  - 64-GB-Karte: plausible, aber nicht endgueltig bewiesene Mitursache der
+    langen Indexierung (sauberer A/B-Nachweis offen).
+  - DfPl Err:1 = transienter Busy-Zustand, in Tests ohne Funktionsausfall.
+
+Unveraendert gueltig: keine count.txt, keine SD-/Dateisystem-Aenderung.
+
+--------------------------------------------------------------------------------
+0. ZWECK UND GELTUNGSBEREICH
+--------------------------------------------------------------------------------
+
+Ziel:
+- Boot- und Startlatenz senken, indem redundante DFPlayer-Abfragen vermieden
+  bzw. deren Anzahl reduziert werden.
+- getTotalTrackCount() nur noch EINMAL und sinnvoll auswerten.
+- getFolderTrackCount() nur dort aufrufen, wo das Ergebnis wirklich gebraucht
+  wird; insbesondere fuer hoerbuch_vb (Mode16) gezielt auslassen.
+- Fortschritts- und Wrap-Verhalten (Track-Nummer 1..N, Ueberlauf) absichern.
+- Counts fuer das normale hoerbuch (ohne _vb), Admin-Menue, Quiz und Webservice
+  unveraendert erhalten.
+
+Nicht-Ziel / ausdruecklich NICHT Teil der Aufgabe:
+- count.txt ist NICHT Teil der Loesung. Es wird weder erzeugt, noch gelesen,
+  noch als Cache verwendet, noch in irgendeiner Phase dieses Plans benoetigt.
+  Jede Idee "Track-Anzahl in count.txt ablegen" ist verworfen und darf nicht
+  umgesetzt werden.
+- Keine Aenderung am SD-Karten-Format/Inhalt.
+- Kein neuer persistenter Zustand.
+
+Harte Randbedingungen fuer JEDE Phase:
+- [ ] Keine Aenderung an SD-Karte / Dateisystem auf der Karte.
+- [ ] Kein Commit/Push, solange nicht ausdruecklich angefordert.
+- [ ] Build und ggf. Test nur mit dem Command, den der Orchestrator vorgibt.
+- [ ] Jede Phase ist einzeln testbar und einzeln rueckrollbar.
+- [ ] Nach jeder Aenderung: gleiches Messverfahren wie in Phase 1 (Baseline).
+
+Referenz-Codestellen (Stand jetzt):
+- src/mp3.cpp init()            : Zeilen ~66-93  (getTotalTrackCount Retry + Log)
+- src/mp3.cpp getFolderTrackCount(): Zeilen ~327-349
+- src/tonuino.cpp playFolder()  : Zeilen ~316-447
+  - Zeile ~318: generischer getFolderTrackCount(myFolder.folder)
+  - Zeile ~425: getFolderTrackCount(folderForHoerbuch) im hoerbuch-Zweig
+- src/state_machine.cpp         : Zeilen ~306, ~339, ~372 (Admin-Track-Auswahl)
+- src/webservice.cpp            : Zeile ~617 (Card-Editor Validierung)
+- src/chip_card.cpp             : Zeile ~178 (album_vb -> hoerbuch_vb Remap)
+- src/constants.hpp             : Zeile ~180 (GD3200B Hinweis getFolderTrackCount)
+
+Wichtige Modus-Fakten (fuer die Umsetzung zwingend beachten):
+- hoerbuch_vb = Mode 16.
+- album_vb (Mode 8) wird intern auf hoerbuch_vb (Mode 16) abgebildet
+  (chip_card.cpp, readCard()). Eine Massnahme "nur fuer hoerbuch_vb" wirkt
+  also auch fuer Karten, die urspruenglich als Mode8 vorliegen.
+- In playFolder() bekommt hoerbuch_vb seine Grenzen first_track=special,
+  last_track=special2. Der generische Count aus Zeile ~318 wird fuer
+  hoerbuch_vb NICHT zur Queue-Bildung gebraucht.
+- Fuer hoerspiel_vb / album_vb / party_vb werden first/last ebenfalls aus
+  special/special2 gesetzt; hier ist die Lage gesondert zu pruefen, aber
+  NICHT Teil dieser Aufgabe (nur hoerbuch_vb/Mode16 abschalten).
+
+================================================================================
+PHASE 1 - BASELINE ERFASSEN (KEINE CODEAENDERUNG)
+================================================================================
+
+STATUS: TEILWEISE (Messwerte vorhanden, Rohdaten-/Median-Protokoll offen)
+
+Ziel: reproduzierbare Ist-Werte, bevor irgendetwas geaendert wird.
+
+- [ ] 1.1 Build mit dem vom Orchestrator vorgegebenen Command, unveraenderter
+          Stand, Artefakt/Log sichern.
+- [ ] 1.2 Testlauf (falls vorgesehen) mit vorgegebenem Command, Ergebnis notieren.
+- [ ] 1.3 Messtabelle (Abschnitt 8) anlegen und Baseline-Zeilen fuellen.
+- [ ] 1.4 Logging aktivieren, das getTotalTrackCount() und
+          getFolderTrackCount() sichtbar macht (bereits vorhanden ueber
+          LOG in mp3.cpp). Log-Ausschnitt fuer einen Boot speichern.
+- [ ] 1.5 Anzahl der getTotalTrackCount()-Aufrufe pro Boot zaehlen.
+- [ ] 1.6 Anzahl der getFolderTrackCount()-Aufrufe pro Start einer
+          hoerbuch_vb/Mode16-Karte zaehlen.
+- [ ] 1.7 Subjektive Startlatenz (Zeit bis erster Ton) mind. 3x messen,
+          Streuung notieren.
+- [ ] 1.8 Messbedingungen dokumentieren: Board, Chip-Typ, Karte, Ordner/Tracks,
+          Netzteil, SD-Karte, Firmware-Flags (z. B. DFMiniMp3_T_CHIP_*).
+
+Baseline-Akzeptanz: Werte liegen vor und sind reproduzierbar (+/- akzeptable
+Streuung). Ohne Baseline wird NICHT optimiert.
+
+================================================================================
+PHASE 2 - REDUNDANTE getTotalTrackCount()-ABFRAGE ENTFERNEN
+================================================================================
+
+STATUS: UMGESETZT (2026-09-30)
+
+Ist-Zustand (src/mp3.cpp, init()):
+- Der Retry-Loop ruft getTotalTrackCount() in der Bedingung auf
+  (while ... getTotalTrackCount() == 0).
+- Direkt danach wird getTotalTrackCount() fuer das Log erneut aufgerufen.
+- Ausserdem ist unklar, ob der zweite Wert ueberhaupt gebraucht wird.
+
+Schritte:
+- [x] 2.1 Wert einmal ermitteln und in einer lokalen Variablen halten
+          (z. B. uint16_t trackCount = 0;).
+- [x] 2.2 Retry-Loop so umbauen, dass die Variable verwendet wird statt
+          eines erneuten Aufrufs pro Schleifendurchlauf.
+- [x] 2.3 Log-Ausgabe auf die bereits ermittelte Variable umstellen
+          (kein zweiter Aufruf).
+- [x] 2.4 Verhalten bei dauerhaftem 0-Wert unveraendert lassen
+          (Timeout bleibt; keine Endlosschleife).
+- [x] 2.5 Sicherstellen: Semantik "einmal ermitteln, einmal loggen" aendert
+          die uebrige Logik nicht.
+
+Erwartetes Ergebnis: getTotalTrackCount() wird pro init() hoechstens einmal
+pro tatsaechlich noetigem Abfragezeitpunkt aufgerufen, nicht mehr doppelt.
+
+Verifikation:
+- [x] 2.6 Build + Test gemaess Orchestrator-Command.
+- [x] 2.7 Log-Zaehlung: getTotalTrackCount-Aufrufe pro Boot gesunken.
+- [ ] 2.8 Messwerte in Tabelle eintragen (Lauf B).
+
+================================================================================
+PHASE 3 - READINESS-GATE OPTIONAL ENTFERNEN (NUR WENN PHASE 2 NICHT REICHT)
+================================================================================
+
+STATUS: TEILWEISE (Gate nicht entfernt, sondern begrenzt umgesetzt)
+
+Definition Readiness-Gate: der Retry-Block in init(), der bis zu ~6 s auf
+getTotalTrackCount() != 0 wartet (startTrackTimer / while-Schleife).
+
+WICHTIG: Diese Phase ist OPTIONAL und nur zulaessig, wenn
+- [x] 3.0a Phase 2 umgesetzt und gemessen ist, UND
+- [x] 3.0b die Messung zeigt, dass das Gate selbst relevante Latenz kostet, UND
+- [ ] 3.0c die Karte/der Player erfahrungsgemaess sofort bereit ist.
+
+Schritte:
+- [x] 3.1 Entscheidung dokumentieren (Gate entfernen ja/nein) mit Begruendung
+          und Bezug auf Messwerte.
+- [x] 3.2a WENN entfernen: Wartezeit auf ein definiertes Minimum reduzieren
+          bzw. den Retry nur einmalig ausfuehren.
+- [ ] 3.2b WENN behalten: Phase 3 offen als "verworfen" markieren.
+- [x] 3.3 Keinen stillen Fallback einfuehren, der spaetere Zaehlfehler
+          verschleiert.
+- [ ] 3.4 Verhalten bei kaltem Player / getauschter SD-Karte explizit testen.
+
+  Hinweis: Umgesetzt wurde die begrenzte Variante - setComRetries(1) nur fuer
+  die Probe, max. 2 Versuche, 500 ms Abstand, Restore auf 3; der 6-s-Timer
+  bleibt als Rueckfallebene. Das Gate selbst wurde bewusst NICHT entfernt.
+
+Verifikation:
+- [x] 3.5 Build + Test gemaess Orchestrator-Command.
+- [ ] 3.6 Kaltstart-Test mehrfach: kein Fehlstart, kein falscher Count.
+- [ ] 3.7 Messwerte in Tabelle eintragen (Lauf C).
+
+Rollback Phase 3: Gate wieder aktivieren (1:1 vorheriger Zustand).
+
+================================================================================
+PHASE 4 - getFolderTrackCount() GEZIELT FUER hoerbuch_vb / MODE16 AUSLASSEN
+================================================================================
+
+STATUS: UMGESETZT (2026-09-30)
+
+Ausgangslage (src/tonuino.cpp, playFolder()):
+- Zeile ~318 ruft IMMER mp3.getFolderTrackCount(myFolder.folder) auf,
+  unabhaengig vom Modus.
+- Fuer hoerbuch_vb sind die Queue-Grenzen aber first_track=special und
+  last_track=special2; der generische Count wird dort nicht zur Queue-Bildung
+  gebraucht.
+- Mode8 (album_vb) wird intern auf hoerbuch_vb remappt -> profitiert mit.
+
+Schritte:
+- [x] 4.1 Die generische Abfrage in Zeile ~318 so umbauen, dass sie fuer
+          pmode_t::hoerbuch_vb NICHT ausgefuehrt wird.
+- [x] 4.2 Alle uebrigen Modi unveraendert lassen:
+          hoerbuch (ohne _vb), hoerbuch_1, hoerspiel, hoerspiel_vb, album,
+          album_vb (falls direkt), party, party_vb, einzel.
+- [x] 4.3 Den Zero-Track-Guard (numTracksInFolder == 0 -> return) fuer
+          hoerbuch_vb anders absichern, OHNE getFolderTrackCount() aufzurufen
+          (siehe Phase 5 und 6).
+- [x] 4.4 Sicherstellen, dass last_track fuer hoerbuch_vb aus special2 kommt
+          und nicht aus einem weggenommenen Count.
+- [x] 4.5 Sicherstellen, dass der hoerbuch-Zweig weiterhin seinen eigenen
+          Count in Zeile ~425 bekommt, wenn special2 > 0 (Normalfall hoerbuch).
+- [x] 4.6 Keinesfalls den generischen Count fuer normale hoerbuch-Karten
+          entfernen, deren special2 == 0 ist (dort ist last_track abhaengig).
+
+Erwartetes Ergebnis: Beim Start einer hoerbuch_vb-/Mode16-Karte entfaellt eine
+DFPlayer-Abfrage pro Play-Start.
+
+Verifikation:
+- [x] 4.7 Build + Test gemaess Orchestrator-Command.
+- [x] 4.8 Log: getFolderTrackCount-Aufrufe bei hoerbuch_vb gesunken.
+- [ ] 4.9 Regressionstest: normales hoerbuch spielt weiterhin korrekt.
+- [ ] 4.10 Messwerte in Tabelle eintragen (Lauf D).
+
+Rollback Phase 4: Abfrage wieder unbedingt ausfuehren.
+
+================================================================================
+PHASE 5 - FORTSCHRITTS-/WRAP-ABSICHERUNG
+================================================================================
+
+STATUS: TEILWEISE (Wrap fuer hoerbuch_vb ueber special2; keine neuen
+Persistenz-/Resume-Tests)
+
+Kontext:
+- Fortschritt wird via settings.readFolderSettingFromFlash /
+  writeFolderSettingToFlash pro Ordner gehalten.
+- nextTrack() schreibt trackToSave = currentTrack < numTracksInFolder ?
+  currentTrack+1 : 1 (Wrap auf 1).
+- Durch Phasen 4/5 darf numTracksInFolder fuer hoerbuch_vb nicht ungenutzt
+  oder falsch belegt sein; sonst kann der Wrap falsch greifen.
+
+Schritte:
+- [ ] 5.1 Sicherstellen, dass numTracksInFolder fuer hoerbuch_vb weiterhin einen
+          gueltigen Wert hat ODER der Wrap ohne numTracksInFolder auskommt.
+- [ ] 5.2 Bevorzugt: fuer hoerbuch_vb den Wrap ueber last_track (special2)
+          absichern, da dies die tatsaechliche Queue-Obergrenze ist.
+- [ ] 5.3 Lesen des Fortschritts: startTrack < first_track || > last_track
+          -> auf first_track klemmen (bestehende Logik erhalten).
+- [ ] 5.4 Absichern, dass gespeicherter Fortschritt nie <= 0 oder > last_track
+          geschrieben wird.
+- [ ] 5.5 Fortschritt nach Power-Off -> Resume pruefen (Wert bleibt erhalten,
+          Start am richtigen Track).
+- [ ] 5.6 Kein neuer persistenter Pfad, keine count.txt.
+
+Verifikation:
+- [ ] 5.7 Build + Test gemaess Orchestrator-Command.
+- [ ] 5.8 Test: letzter Track -> naechster waehlt Track 1 (Wrap).
+- [ ] 5.9 Test: Resume nach Stromausfall.
+- [ ] 5.10 Test: Fortschritt > Bereich wird auf first_track geklemmt.
+- [ ] 5.11 Messwerte in Tabelle eintragen (Lauf E).
+
+Rollback Phase 5: Wrap-/Klemm-Logik auf vorherigen Stand zuruecksetzen.
+
+================================================================================
+PHASE 6 - COUNTS ERHALTEN: normales hoerbuch, Admin, Quiz, Webservice
+================================================================================
+
+STATUS: TEILWEISE (per Codeanalyse; Hardware-Regression fuer Admin/Quiz/
+Webservice offen)
+
+Diese Phase ist eine Schutz-/Regressionphase: NICHTS darf hier kaputt gehen.
+
+- [ ] 6.1 normales hoerbuch / hoerbuch_1:
+          getFolderTrackCount() Aufrufe (Zeile ~318 und ~425) unveraendert.
+- [ ] 6.2 Admin-Menue (src/state_machine.cpp):
+          ChTrack ~306, ChFirstTrack ~339, ChLastTrack ~372 unveraendert.
+- [ ] 6.3 Quiz-Modi: alle enqueueTrack-/Track-Nutzungen unveraendert.
+- [ ] 6.4 Webservice (src/webservice.cpp ~617):
+          Card-Editor-Validierung behaelt getFolderTrackCount().
+- [ ] 6.5 Sicherstellen, dass die Optimierung aus Phase 4 nur den
+          playFolder()-Pfad betrifft und keine dieser Stellen.
+- [ ] 6.6 Gegenprobe per grep: Aufrufstellen von getFolderTrackCount()
+          vor/nach vergleichen.
+
+Verifikation:
+- [ ] 6.7 Build + Test gemaess Orchestrator-Command.
+- [ ] 6.8 Admin-Karte anlegen/bearbeiten funktioniert.
+- [ ] 6.9 Webservice-Karte anlegen validiert Track-Anzahl korrekt.
+- [ ] 6.10 Quiz startet korrekt.
+- [ ] 6.11 Messwerte in Tabelle eintragen (Lauf F).
+
+================================================================================
+PHASE 7 - A/B-MESSPLAN
+================================================================================
+
+STATUS: OFFEN (Messwerte liegen vor, vollstaendige 5x-A/B-Reihe steht aus)
+
+Zweck: sauberer Vergleich Baseline (A) gegen optimiert (B/C/D/E/F).
+
+Vorgehen:
+- [ ] 7.1 Gleiche Hardware, gleiche SD-Karte, gleiche Tracks, gleiches Netzteil.
+- [ ] 7.2 Gleiche Firmware-Flags, nur der jeweils getestete Schritt unterscheidet.
+- [ ] 7.3 Pro Variante mindestens 5 Boots / 5 Play-Starts.
+- [ ] 7.4 Messgroessen:
+          - Zeit bis Mp3::init() fertig (ms)
+          - Zeit bis erster Ton (Startlatenz) (ms)
+          - Anzahl getTotalTrackCount-Aufrufe pro Boot
+          - Anzahl getFolderTrackCount-Aufrufe pro Play-Start (hoerbuch_vb)
+          - Fehlstart-/Aussetzer-Zaehler
+- [ ] 7.5 Median + Min/Max je Variante berechnen.
+- [ ] 7.6 Varianten klar benennen (A/B/C/D/E/F) und in Tabelle eintragen.
+- [ ] 7.7 Nur EINE Variable gleichzeitig gegenueber der vorherigen Variante
+          veraendern (isoliertes A/B).
+- [ ] 7.8 Ergebnis als Delta zur Baseline ausdruecken.
+
+Abbruch der Messreihe, wenn:
+- [ ] 7.9 irgendeine Variante einen Fehlstart oder kaputten Fortschritt zeigt.
+
+================================================================================
+PHASE 8 - FIXER-SESSIONS (REIHENFOLGE, KLEINTEILIG)
+================================================================================
+
+STATUS: TEILWEISE (F1-F4 umgesetzt, F5 teilweise, F6/F7 offen)
+
+Jede Session ist minimal-invasiv, einzeln baubar, einzeln testbar, einzeln
+rueckrollbar. Immer erst Failing-Test/Reproduktion, dann Edit, dann Test.
+
+- [x] Fixer-Session F1: Baseline erfassen (Phase 1), keine Codeaenderung.
+- [x] Fixer-Session F2: doppelte getTotalTrackCount()-Abfrage entfernen (Phase 2).
+- [x] Fixer-Session F3: Messung F2, Entscheidung Readiness-Gate (Phase 3).
+- [x] Fixer-Session F4: hoerbuch_vb/Mode16 getFolderTrackCount auslassen (Phase 4).
+- [ ] Fixer-Session F5: Fortschritts-/Wrap-Absicherung (Phase 5).
+- [ ] Fixer-Session F6: Regressionsschutz normales hoerbuch/Admin/Quiz/Webservice (Phase 6).
+- [ ] Fixer-Session F7: A/B-Messreihe finalisieren und Tabelle abschliessen (Phase 7).
+
+Regeln fuer jede Fixer-Session:
+- [ ] Test-Command EXAKT vom Orchestrator, nicht selbst raten.
+- [ ] Nach gruenem Test sofort stoppen, kein Refactoring on top.
+- [ ] Kein Commit/Push ohne ausdrueckliche Anweisung.
+
+================================================================================
+PHASE 9 - STOP- UND ROLLBACK-KRITERIEN
+================================================================================
+
+STATUS: keine Abbruchbedingung eingetreten
+
+SOFORT STOPPEN und zurueckrollen, wenn eine der folgenden Bedingungen eintritt:
+- [ ] 9.1 Build bricht und ist nicht in der Session behebbar.
+- [ ] 9.2 Tests werden durch die Aenderung rot (Regression).
+- [ ] 9.3 hoerbuch_vb spielt falschen Bereich (special/special2 verletzt).
+- [ ] 9.4 Fortschritt wird falsch gespeichert oder geht verloren.
+- [ ] 9.5 Wrap waehlt falschen Track statt 1.
+- [ ] 9.6 normales hoerbuch, Admin, Quiz oder Webservice verhalten sich anders.
+- [ ] 9.7 Messung zeigt keine Verbesserung gegenueber Baseline (dann Aenderung
+          zuruecknehmen, statt Komplexitaet zu behalten).
+- [ ] 9.8 Es wird versucht, count.txt einzufuehren -> sofortiger Stopp, da
+          nicht Teil der Loesung.
+
+Rollback-Verfahren:
+- [ ] 9.9 Pro Fixer-Session genau EINE Aenderung, damit selektiver Rollback
+          moeglich ist (git diff / git checkout auf einzelne Dateien).
+- [ ] 9.10 Nach Rollback erneut Baseline-Messung, um den Ursprungszustand
+          zu bestaetigen.
+
+================================================================================
+PHASE 10 - ABSCHLUSS
+================================================================================
+
+STATUS: OFFEN
+
+- [ ] 10.1 Alle offenen Punkte abgearbeitet oder bewusst als "verworfen"
+          markiert (besonders Phase 3).
+- [ ] 10.2 Messtabelle vollstaendig.
+- [x] 10.3 Bestaetigt: count.txt NICHT eingefuehrt.
+- [x] 10.4 Bestaetigt: keine SD-Aenderung, kein Commit/Push ohne Anweisung.
+- [ ] 10.5 Kurzbericht: welche Latenz-Reduktion erreicht, welche Aenderung
+          blieb, welche verworfen.
+
+================================================================================
+8. MESS-TABELLE (ausfuellen)
+================================================================================
+
+Legende:
+  Lauf A = Baseline
+  Lauf B = Phase 2 (getTotalTrackCount dedup)
+  Lauf C = Phase 3 (Readiness-Gate, falls umgesetzt)
+  Lauf D = Phase 4 (getFolderTrackCount fuer hoerbuch_vb ausgelassen)
+  Lauf E = Phase 5 (Fortschritts-/Wrap-Absicherung)
+  Lauf F = Phase 6 (Regression normales hoerbuch/Admin/Quiz/Webservice)
+
++------+------------------------------------------+--------+--------+--------+--------+--------+--------+
+| Lauf | Aenderung / Zustand                      | Boot ms| Play ms| #TTC   | #FTC   | Fehler | Bem.   |
++------+------------------------------------------+--------+--------+--------+--------+--------+--------+
+| A    | Baseline                                 |        |        |        |        |        |        |
+| B    | getTotalTrackCount dedup                 |        |        |        |        |        |        |
+| C    | Readiness-Gate (optional)                |        |        |        |        |        |        |
+| D    | hoerbuch_vb ohne getFolderTrackCount     |        |        |        |        |        |        |
+| E    | Fortschritt/Wrap abgesichert             |        |        |        |        |        |        |
+| F    | Regression Normalfaelle                  |        |        |        |        |        |        |
++------+------------------------------------------+--------+--------+--------+--------+--------+--------+
+
+Spalten:
+  Boot ms  = Zeit bis Mp3::init() abgeschlossen (Median von >=5 Boots)
+  Play ms  = Zeit bis erster Ton (Median von >=5 Play-Starts)
+  #TTC     = Anzahl getTotalTrackCount()-Aufrufe pro Boot
+  #FTC     = Anzahl getFolderTrackCount()-Aufrufe pro Play-Start (hoerbuch_vb)
+  Fehler   = Fehlstarts / Aussetzer / Fortschrittsfehler
+  Bem.     = Auffaelligkeiten, Streuung, Sonderfaelle
+
+Zusatz: Rohdaten (Einzelmessungen) separat ablegen, nicht in diese Datei mischen.
+
+Erfasste Werte (2026-09-30, nicht zeilenweise zugeordnet):
+  - kleine FAT32-Testkarte, 797 Tracks: Boot bis Idle ca. 2100 ms;
+    Mode16-Kartenstart bis isPlaying ca. 1100 ms.
+  - grosse Karte, ca. 7360 Tracks: Boot typischerweise ca. 5500 ms;
+    Kartenstart ca. 3000-6000 ms (je nach SD-/DFPlayer-Indexierung teils mehr).
+  Die Zellen der Tabelle bleiben offen, bis die vollstaendige A/B-Reihe
+  (Phase 7) vorliegt.
+
+================================================================================
+9. NICHT VERGESSEN
+================================================================================
+
+- count.txt ist NICHT Teil der Loesung. Kein Cache, kein Zaehler, kein Workaround.
+- Mode8 (album_vb) wird intern auf Mode16 (hoerbuch_vb) remappt; die gezielte
+  Auslassung wirkt daher auch fuer Mode8-Karten.
+- Counts fuer normales hoerbuch (special2 == 0), Admin, Quiz und Webservice
+  bleiben unangetastet.
+- Jede Phase: erst Test/Reproduktion, dann Edit, dann Test, dann Stopp.
+- Kein Commit/Push ohne ausdrueckliche Anweisung.
+
+================================================================================
+ENDE DER TO-DO-PLAN-DATEI
+================================================================================

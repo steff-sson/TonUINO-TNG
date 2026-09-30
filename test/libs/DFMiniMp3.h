@@ -114,6 +114,9 @@ public:
       called_begin = true;
     }
 
+    uint8_t com_retries = 3;
+    void setComRetries(uint8_t retries) { com_retries = retries; }
+
     bool df_playing = false;
     bool df_playing_adv = false;
     int df_playing_adv_counter = 0;

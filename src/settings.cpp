@@ -66,7 +66,7 @@ void Settings::resetSettings() {
   spkInitVolume        = AIO_SPK_INIT_VOLUME;
   eq                   =  1;
   dummy                =  0;
-  standbyTimer         =  0;
+  standbyTimer         = AIO_STANDBY_TIMER;
   invertVolumeButtons  =  1;
   shortCuts[0]         =  { 0, pmode_t::none, 0, 0 };
   shortCuts[1]         =  { 0, pmode_t::none, 0, 0 };
@@ -91,17 +91,11 @@ void Settings::loadSettingsFromFlash() {
   if (cookie != cardCookie)
     resetSettings();
 
-  // PCR (pause when card removed) is hard coded to 1 for this firmware (user wish).
-  // Force it after loading so a previously stored valid EEPROM value cannot override it.
-  // This only changes RAM, no write to flash -> no unexpected EEPROM wear.
-  pauseWhenCardRemoved = AIO_PAUSE_WHEN_CARD_REMOVED;
-
-  // Speaker volume is hard coded in RAM for this firmware (user wish).
-  // Force it after loading so a previously stored valid EEPROM value cannot override it.
-  // This only changes RAM, no write to flash -> no unexpected EEPROM wear.
-  spkMinVolume  = AIO_SPK_MIN_VOLUME;
-  spkMaxVolume  = AIO_SPK_MAX_VOLUME;
-  spkInitVolume = AIO_SPK_INIT_VOLUME;
+  // PCR (pause when card removed), speaker volume and standby timer are normal
+  // EEPROM defaults (set in resetSettings()). They are NOT forced here: a valid
+  // EEPROM value wins and can be changed via the admin menu (a stored PCR=0 is
+  // kept). Clearing the EEPROM (all buttons pressed at power-on, or admin menu
+  // "reset EEPROM") restores the defaults (PCR=1).
 
   if (hpMaxVolume == 255 || hpMaxVolume == 0) {
     hpMaxVolume          = 25;

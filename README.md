@@ -74,21 +74,38 @@ fork-spezifischen Anpassungen (eigene Umgebung `TNG_AiO5`) sind in
 
 ### AiO5-Fork-Konfiguration
 
-Die zentralen AiO5-Variablen stehen in `src/constants.hpp`:
+Die zentralen AiO5-Defaults stehen in `src/constants.hpp`:
 
 ```cpp
 AIO_SPK_MIN_VOLUME          = 1
-AIO_SPK_MAX_VOLUME          = 20
-AIO_SPK_INIT_VOLUME         = 6
+AIO_SPK_MAX_VOLUME          = 25
+AIO_SPK_INIT_VOLUME         = 8
 AIO_PAUSE_WHEN_CARD_REMOVED = 1
+AIO_STANDBY_TIMER           = 15   // Minuten, 0 = aus
 ```
 
-- **Speakerwerte (min/max/init):** Diese Werte werden für die AiO5-Firmware im RAM
-  erzwungen und sind nicht über das EEPROM veränderbar.
+- **Speakerwerte (min/max/init), Standby-Timer und PCR:** Diese Werte sind normale
+  EEPROM-Defaults. Sie werden nur beim Zurücksetzen der Einstellungen
+  (fabrikneues bzw. geleertes EEPROM) gesetzt und danach – wie jede andere
+  Einstellung – im EEPROM gespeichert. Nach dem Laden aus dem EEPROM werden sie
+  **nicht** im RAM erzwungen und sind über das Admin-Menü änderbar; ein gültiger
+  EEPROM-Wert (z. B. `PCR=0`) bleibt erhalten.
+- **EEPROM löschen:** Zum Zurücksetzen auf diese Defaults das EEPROM mit der
+  vorhandenen Tastenkombination leeren (alle Tasten beim Einschalten gedrückt
+  halten) oder im Admin-Menü „EEPROM reset“ wählen.
 - **Kopfhörerwerte:** Bleiben EEPROM-gesteuert und werden weiterhin über das
   Admin-Menü verwaltet.
-- **`AIO_PAUSE_WHEN_CARD_REMOVED = 1` (PCR):** Wird die Karte entfernt, pausiert die
-  Wiedergabe; beim Wiederauflegen wird fortgesetzt (Resume).
+- **`AIO_PAUSE_WHEN_CARD_REMOVED = 1` (PCR):** Default beim Zurücksetzen. Ist PCR
+  aktiv, pausiert die Wiedergabe beim Entfernen der Karte; beim Wiederauflegen wird
+  fortgesetzt (Resume). Der Wert ist über das Admin-Menü änderbar.
+- **Boot-/Start-Optimierungen (AiO5):** Beim Kartenstart wird das Pling
+  übersprungen; Boot- und Shutdown-Pling bleiben unverändert. Bei
+  Mode16-/`hoerbuch_vb`-Karten entfällt die teure `getFolderTrackCount()`-Abfrage
+  (die Grenzen kommen aus `special`/`special2`). Die DFPlayer-Readiness-Probe im
+  Boot ist begrenzt (`setComRetries(1)`, max. 2 Versuche, 500 ms Abstand, danach
+  Restore auf 3; das 6-s-Gate bleibt als Rückfallebene). Messwerte und Details
+  stehen in [TNG-AIO5.md](TNG-AIO5.md); der Boot ist damit **nicht** vollständig
+  optimiert.
 
 Der vollständige AiO5-Fork-Kontext steht in [TNG-AIO5.md](TNG-AIO5.md).
 
@@ -120,6 +137,15 @@ Eine Anleitung dafür findet man [hier](https://discourse.voss.earth/t/tonuino-s
 ```
   pio device monitor -p <port>
 ```
+
+# EEPROM zurücksetzen
+
+Es gibt zwei Wege, den EEPROM des TonUINO zurückzusetzen:
+
+- **Admin-Menü:** Bei laufendem Gerät Pause + Laut+ + Laut− gedrückt halten, um ins Admin-Menü zu gelangen. Dort die Option 11 „EEPROM reset“ wählen.
+- **Boot-Reset:** Gerät ausschalten und beim Einschalten Pause + Next/Up + Prev/Down gedrückt halten. Der Boot-Reset verwendet **nicht** Laut+ und Laut−.
+
+> **Warnung:** Beide Wege löschen den gesamten EEPROM-Inhalt, einschließlich gespeicherter Hörbuch-Fortschritte, Lesezeichen/Extra-Shortcuts und Admin-Einstellungen.
 
 # Installation
 

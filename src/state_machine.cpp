@@ -1011,7 +1011,11 @@ void Pause::react(card_e const &c_e) {
 template<class P> void StartPlay<P>::entry() {
   LOG(state_log, s_info, str_enter(), str_StartPlay());
   state_str = str_StartPlay();
-  mp3.enqueueMp3FolderTrack(mp3Tracks::t_262_pling);
+  // Beim Kartenstart das Pling überspringen, damit der Start ohne Warten auf
+  // das Pling-Ende direkt weiterläuft. Andere Startwege (z. B. Shortcuts)
+  // sowie Boot- und Shutdown-Pling bleiben unverändert.
+  if (not tonuino.playingCard())
+    mp3.enqueueMp3FolderTrack(mp3Tracks::t_262_pling);
   timer.stop();
 }
 

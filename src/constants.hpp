@@ -126,22 +126,32 @@ static_assert(SUM_PCB == 1 , "Please uncomment exactly one of the PCB lines (Ton
 // ######################################################################
 // ####### TNG-AiO5 application configuration ###########################
 // ######################################################################
-/* Central hard-coded application values for the TNG-AiO5 firmware.
- * They are forced in RAM by src/settings.cpp (both on reset and after
- * loading from EEPROM) and are intentionally NOT written to EEPROM.
- * Headphone (hp*) values are deliberately NOT configured here; they stay
- * EEPROM-controlled.
+/* Default application values for the TNG-AiO5 firmware.
+ * They are used by src/settings.cpp only when the settings are reset
+ * (invalid/absent cookie, e.g. brand new or cleared EEPROM) and are stored
+ * normally in EEPROM. They behave like any other EEPROM setting and can be
+ * changed through the admin menu; clearing the EEPROM (all buttons pressed
+ * at power-on, or admin menu "reset EEPROM") restores these defaults.
+ * No RAM overriding after loading from EEPROM and no migration logic.
+ * Headphone (hp*) values are deliberately NOT configured here; they keep
+ * the upstream defaults.
  *
- * Zentrale, fest verdrahtete Anwendungswerte fuer die TNG-AiO5-Firmware.
- * Sie werden in src/settings.cpp im RAM erzwungen (beim Reset und nach dem
- * Laden aus dem EEPROM) und absichtlich NICHT ins EEPROM geschrieben.
- * Kopfhoerer-Werte (hp*) werden hier bewusst NICHT gesetzt; sie bleiben
- * EEPROM-gesteuert.
+ * Default-Anwendungswerte fuer die TNG-AiO5-Firmware.
+ * Sie werden in src/settings.cpp nur beim Zuruecksetzen der Einstellungen
+ * verwendet (ungueltiger/fehlender Cookie, z. B. fabrikneues oder geleertes
+ * EEPROM) und normal im EEPROM gespeichert. Danach verhalten sie sich wie
+ * jede andere EEPROM-Einstellung und sind ueber das Admin-Menue aenderbar;
+ * ein geleertes EEPROM (alle Tasten beim Einschalten gedrueckt, oder
+ * Admin-Menue "EEPROM reset") stellt diese Defaults wieder her.
+ * Kein RAM-Forcing nach dem Laden aus dem EEPROM und keine Migrationslogik.
+ * Kopfhoerer-Werte (hp*) werden hier bewusst NICHT gesetzt; sie behalten
+ * die Upstream-Defaults.
  */
-inline constexpr uint8_t AIO_SPK_MIN_VOLUME          =  1; // speaker min volume
-inline constexpr uint8_t AIO_SPK_MAX_VOLUME          = 25; // speaker max volume
-inline constexpr uint8_t AIO_SPK_INIT_VOLUME         =  8; // speaker initial volume
-inline constexpr uint8_t AIO_PAUSE_WHEN_CARD_REMOVED =  1; // pause when card removed
+inline constexpr uint8_t AIO_SPK_MIN_VOLUME          =  1; // speaker min volume (default)
+inline constexpr uint8_t AIO_SPK_MAX_VOLUME          = 25; // speaker max volume (default)
+inline constexpr uint8_t AIO_SPK_INIT_VOLUME         =  8; // speaker initial volume (default)
+inline constexpr uint8_t AIO_PAUSE_WHEN_CARD_REMOVED =  1; // pause when card removed (default)
+inline constexpr uint32_t AIO_STANDBY_TIMER          = 15; // standby timer in minutes, 0 = off (default)
 
 // ######################################################################
 
