@@ -392,15 +392,11 @@ void Mp3::setVolume(uint8_t v) {
 }
 
 void Mp3::sendVolume(uint8_t v) {
-  // Affenbox scaling for the actual DFPlayer command: the TNG display/settings
-  // value v is sent as (v / 2) + 1. The headphone path keeps its EEPROM value.
-#ifdef HPJACKDETECT
-  const uint8_t dfPlayerVolume = isHeadphoneJackDetect() ? v : static_cast<uint8_t>((v / 2) + 1);
-#else
-  const uint8_t dfPlayerVolume = static_cast<uint8_t>((v / 2) + 1);
-#endif
+  // 1:1 passthrough: the TNG display/settings value v (0..30) is sent
+  // unchanged to the DFPlayer (speaker AND headphone). DFPlayer natively
+  // supports 0..30; the admin menu allows max volume up to 30.
   // fire and forget: send once, no getVolume() ack polling (like Affenbox)
-  Base::setVolume(dfPlayerVolume);
+  Base::setVolume(v);
 }
 
 void Mp3::logVolume() {

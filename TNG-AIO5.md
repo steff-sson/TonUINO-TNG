@@ -58,7 +58,7 @@ Flash: [========= ]  97.4% (used 28924 bytes from 29696 bytes)
 | `src/constants.hpp` | AiO-Buttonbelegung: `buttonUpPin = A1` (Next), `buttonDownPin = A2` (Previous). |
 | `src/chip_card.cpp` | Gelesene `album_vb`-Karten werden intern auf `hoerbuch_vb` abgebildet (Abschnitt 5). |
 | `src/settings.cpp` | PCR, Speaker- und Standby-Werte als EEPROM-Defaults (nicht mehr im RAM erzwungen; Abschnitte 6/7). |
-| `src/mp3.cpp` | `setVolume()` fire-and-forget; `missing OnPlayFinished`-Watchdog für classic AiO compile-time deaktiviert (Abschnitte 7/8); doppelte reine Log-Abfrage entfernt und Readiness-Probe begrenzt (Abschnitt 12). |
+| `src/mp3.cpp` | `setVolume()` fire-and-forget und **1:1-Durchreichung** an den DFPlayer (Abschnitt 7); `missing OnPlayFinished`-Watchdog für classic AiO compile-time deaktiviert (Abschnitte 7/8); doppelte reine Log-Abfrage entfernt und Readiness-Probe begrenzt (Abschnitt 12). |
 | `src/mp3.hpp` | `setVolume()` Rückgabetyp `bool` → `void`. |
 | `src/state_machine.cpp` | Kartenstart-Pling in `StartPlay::entry()` übersprungen, wenn von einer Karte gestartet wird; Boot-/Shutdown-Pling unverändert (Abschnitt 12). |
 | `src/tonuino.cpp` | Mode16/`hoerbuch_vb`: `getFolderTrackCount()` im `playFolder()` übersprungen, Grenzen aus `special`/`special2` (Abschnitt 12). |
@@ -98,6 +98,13 @@ Flash: [========= ]  97.4% (used 28924 bytes from 29696 bytes)
   im Admin-Menü „EEPROM reset“ wählen.
 - `Mp3::setVolume()` ist **fire-and-forget**: Wert einmal senden, **keine**
   `getVolume()`-Verifikation/ACK-Abfrage mehr.
+- Der TNG-Lautstärkewert (Anzeige/Admin-Menü, `0..30`) wird von `Mp3::sendVolume()`
+  **1:1** an den DFPlayer durchgereicht – **Speaker und Kopfhörer** erhalten exakt
+  den Anzeige-/Settings-Wert. Der DFPlayer unterstützt nativ `0..30`; `0` bedeutet
+  damit **Mute**. Die frühere „Affenbox"-Halbierung `(v / 2) + 1` ist entfernt.
+- **Nach dem Update die max. Volume prüfen:** Ein gespeicherter Wert (z. B. `25`)
+  klingt jetzt lauter als zuvor (vorher wurde an den DFPlayer nur `13` gesendet).
+  Bei Verzerrung im Vollausschlag `spkMaxVolume` im Admin-Menü senken.
 
 ## 8. `missing OnPlayFinished` (nur classic AiO)
 

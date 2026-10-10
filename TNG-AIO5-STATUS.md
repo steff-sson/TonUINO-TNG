@@ -1,7 +1,7 @@
 # TNG-AiO5 – Status (Branch `tng-aio5`)
 
 Dauerhafte Statusdatei für den Stand des AiO5-Forks.
-Stand: **2026-09-30** · Branch: **`tng-aio5`** · PlatformIO-Umgebung: **`TNG_AiO5`**
+Stand: **2026-10-10** · Branch: **`tng-aio5`** · PlatformIO-Umgebung: **`TNG_AiO5`**
 
 Diese Datei fasst den aktuellen, verifizierten Stand zusammen. Sie ersetzt die
 frühere Arbeitsplan-/Übergabedokumentation (`ToDo-Boot-Optimierung.txt`,
@@ -41,6 +41,11 @@ das Admin-Menü änderbar.
   `PCR=0` bleibt erhalten (kein RAM-Erzwingen).
 - `Mp3::setVolume()` ist **fire-and-forget**: Wert einmal senden, keine
   `getVolume()`-Verifikation/ACK-Abfrage.
+- **Volume 1:1 (Fix):** `Mp3::sendVolume()` reicht den TNG-Wert (`0..30`) jetzt
+  **unverändert** an den DFPlayer durch – Speaker und Kopfhörer. `0` = **Mute**;
+  die frühere Halbierung `(v/2)+1` ist entfernt. **Nach dem Update die max. Volume
+  prüfen:** gespeicherte Werte (z. B. `25`) sind jetzt hörbar lauter; bei Verzerrung
+  `spkMaxVolume` im Admin-Menü senken.
 - Zum Zurücksetzen auf die Defaults das EEPROM mit der vorhandenen
   Tastenkombination leeren (alle Tasten beim Einschalten gedrückt halten) oder im
   Admin-Menü „EEPROM reset“ wählen.
@@ -67,6 +72,9 @@ separat zu messender Schritt.
   `RAM 71.7%` (1468/2048 B), `Flash 97.4%` (28924/29696 B), `[SUCCESS]`.
 - PlatformIO kann Warnungen zu altem PIO-Core und `lib_deps_esp32` ausgeben – für
   den AiO-Build irrelevant, keine Funktionsfehler.
+- **Hardwaretest erfolgreich (2026-10-10):** der neue TNG-AiO5-Build läuft auf der
+  Hardware; das Lautstärkeproblem ist behoben. Volume **15/25/30** praktisch
+  geprüft – Ergebnis laut Nutzer **„absolut perfekt"**, keine störende Verzerrung.
 - Funktionsprüfungen: große Karte mit 7360 Tracks wird gelesen; Mode-8-Bereich und
   Fortschritt funktionieren; Pause/Resume funktioniert; Buttons A0–A4 funktionieren.
 - **Offen:** vollständige A/B-Messreihe (≥ 5 Boots/Starts pro Variante) sowie
